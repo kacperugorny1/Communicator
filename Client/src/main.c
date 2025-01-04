@@ -1,59 +1,93 @@
+/*
+** client.c -- a stream socket client demo
+*/
+
 #include <stdio.h>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <netdb.h>
 #include <stdlib.h>
-#include <arpa/inet.h>
+#include <unistd.h>
+#include <errno.h>
 #include <string.h>
+#include <netdb.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 
-int main(int argc, char *argv[]){
-  int fd, status;
-  char buf[1024];
-  int len;
-  struct addrinfo hints = {.ai_flags = AI_PASSIVE, .ai_socktype = SOCK_STREAM,.ai_family = AF_UNSPEC}
-                , *res, *tmp;
-  //Port check; 
-  if(argc != 3){
-    fprintf(stderr, "usage: ./main hostname port");
-    exit(1);
-  }
-  if(atoi(argv[2]) <= 1024){
-    fprintf(stderr, "port must be numerical port > 1024");
-    exit(2);
-  }
+#include <arpa/inet.h>
 
-  
-  //Getting addrinfo
-  if((status = getaddrinfo(argv[1], argv[2], &hints, &res) != 0)){
-    fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(status));
-    exit(3);
-  }
-  
-  //find ipv4
-  tmp = res;
-  while(tmp->ai_family != PF_INET){
-    tmp = tmp->ai_next;
-    if(tmp == NULL) break;
-  }
+#define PORT "3490" // the port client will be connecting to 
 
-  if(tmp == NULL){
-    fprintf(stderr, "Didnt find ipv4\n");
-    exit(4);
-  }
-  
-  //create socket
-  fd = socket(tmp->ai_family, tmp->ai_socktype,tmp->ai_protocol);
-  if(fd == -1){
-    fprintf(stderr, "Couldnt create socket\n");
-    exit(5);
-  }
+#define MAXDATASIZE 100 // max number of bytes we can get at once 
 
-  puts("Socket created");
-  while((status = connect(fd, tmp->ai_addr, tmp->ai_addrlen)) == -1) ;
-  puts("Connected");
-  len = recv(fd, buf, 1024, 0);
-  if(len == -1) perror("recv");
-  buf[len] = '\0';
-  printf("Message: %s\n", buf);
+// get sockaddr, IPv4 or IPv6:
+void *get_in_addr(struct sockaddr *sa)
+{
+    if (sa->sa_family == AF_INET) {
+        return &(((struct sockaddr_in*)sa)->sin_addr);
+    }
+
+    return &(((struct sockaddr_in6*)sa)->sin6_addr);
+}
+
+int main(int argc, char *argv[])
+{
+    int sockfd, numbytes;  
+    char buf[MAXDATASIZE];
+    struct addrinfo hints, *servinfo, *p;
+    int rv;
+    char s[INET6_ADDRSTRLEN];
+
+    if (argc != 2) {
+        fprintf(stderr,"usage: client hostname\n");
+        exit(1);
+    }
+
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+
+    if ((rv = getaddrinfo(argv[1], PORT, &hints, &servinfo)) != 0) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+        return 1;
+    }
+
+    // loop through all the results and connect to the first we can
+    for(p = servinfo; p != NULL; p = p->ai_next) {
+        if ((sockfd = socket(p->ai_family, p->ai_socktype,
+                p->ai_protocol)) == -1) {
+            perror("client: socket");
+            continue;
+        }
+
+        if (connect(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
+            close(sockfd);
+            perror("client: connect");
+            continue;
+        }
+
+        break;
+    }
+
+    if (p == NULL) {
+        fprintf(stderr, "client: failed to connect\n");
+        return 2;
+    }
+
+    inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr),
+            s, sizeof s);
+    printf("client: connecting to %s\n", s);
+
+    freeaddrinfo(servinfo); // all done with this structure
+
+    if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
+        perror("recv");
+        exit(1);
+    }
+
+    buf[numbytes] = '\0';
+
+    printf("client: received '%s'\n",buf);
+
+    close(sockfd);
+
+    return 0;
 }
