@@ -135,8 +135,14 @@ int main(int args, char** argv)
 
     if (!fork()) { // this is the child process
       close(sockfd); // child doesn't need the listener
-      if (send(new_fd, "Hello, world!", 13, 0) == -1)
-        perror("send");
+      puts("Before send"); 
+      char msg[1024];
+      for(int i = 0; i < 1; ++i){
+        scanf("%s",msg);
+        if (send(new_fd, msg, strlen(msg), 0) == -1)
+          perror("send");
+        else puts("sent data");
+      }
       close(new_fd);
       exit(0);
     }

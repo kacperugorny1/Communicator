@@ -89,15 +89,15 @@ int main(int argc, char *argv[])
     exit(1);
   }
   sockfd = configure_connection(argv[1], argv[2]);
-  if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
-      perror("recv");
-      exit(1);
+  for(int i = 0; i < 1; ++i){
+    getc(stdin);
+    if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
+        perror("recv");
+        exit(1);
+    }
+    buf[numbytes] = '\0';
+    printf("client: received '%s'\n",buf);
   }
-
-  buf[numbytes] = '\0';
-
-  printf("client: received '%s'\n",buf);
-
   close(sockfd);
 
   return 0;
