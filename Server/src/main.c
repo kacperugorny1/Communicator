@@ -7,13 +7,24 @@
 #include <arpa/inet.h>
 #include <string.h>
 
+// get sockaddr, IPv4 or IPv6:
+void *get_in_addr(struct sockaddr *sa)
+{
+    if (sa->sa_family == AF_INET) {
+        return &(((struct sockaddr_in*)sa)->sin_addr);
+    }
+
+    return &(((struct sockaddr_in6*)sa)->sin6_addr);
+}
+
+
 int main(int argc, char *argv[]){
   int fd, status, yes = 1;
   int fd2 = -1;
   socklen_t addrlen = { 0 };
   struct addrinfo hints = {.ai_flags = AI_PASSIVE, .ai_socktype = SOCK_STREAM,.ai_family = AF_UNSPEC}
                 , *res, *tmp;
-  struct sockaddr addr ={ 0 };
+  struct sockaddr_storage their_addr = {0};
   //Port check; 
   if(argc != 2){
     fprintf(stderr, "usage: ./main port");
@@ -65,14 +76,18 @@ int main(int argc, char *argv[]){
   }
   puts("Listen");
 
+  char buf[100];
   while(1){
-    fd2 = accept(fd,&addr,&addrlen);
+    fd2 = accept(fd, (struct sockaddr*)&their_addr,&addrlen);
     if(fd2 == -1){
       perror("accept");
       continue;
     }
+    inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr) ,buf,100);
+    printf("ADDRESS:%s\n",buf);
     puts("Accepted");
     if(!fork()){
+      
       printf("Child, fd:%d, fd2:%d\n", fd,fd2);
       close(fd);
       if(send(fd2, "Hello world!", 13, 0) == -1) perror("send");
