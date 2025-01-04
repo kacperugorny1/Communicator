@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
     fprintf(stderr, "Port must be in range 1024 - 65535\n");
     exit(1);
   }
-
+  sockfd = configure_connection(argv[1], argv[2]);
   if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
       perror("recv");
       exit(1);
